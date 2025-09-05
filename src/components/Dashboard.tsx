@@ -1,7 +1,9 @@
 import React from 'react';
 import { FileText, Brain, Users, TrendingUp, Clock, CheckCircle2, AlertTriangle, Lightbulb } from 'lucide-react';
 
-const Dashboard = () => {
+type Props = { user?: { name?: string; email?: string } };
+
+const Dashboard = ({ user }: Props) => {
   const recentProjects = [
     { name: 'Mobile App Redesign PRD', status: 'In Progress', progress: 75, lastUpdated: '2 hours ago' },
     { name: 'API Prioritization Framework', status: 'Complete', progress: 100, lastUpdated: '1 day ago' },
@@ -40,7 +42,7 @@ const Dashboard = () => {
     <div className="space-y-8">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white">
-        <h2 className="text-2xl font-bold mb-2">Welcome back, Sarah! 👋</h2>
+        <h2 className="text-2xl font-bold mb-2">Welcome back, {user?.name?.split(' ')[0] || 'there'}! 👋</h2>
         <p className="text-blue-100 mb-4">
           Your AI copilot has analyzed your recent work and has some insights to help you make better product decisions.
         </p>

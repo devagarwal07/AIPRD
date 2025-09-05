@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, TrendingUp, Users, DollarSign, Zap, BarChart3 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, TrendingUp, DollarSign, Zap, BarChart3, Download, SlidersHorizontal } from 'lucide-react';
 
 interface Feature {
   id: string;
@@ -29,13 +29,52 @@ const PrioritizationMatrix = () => {
   });
 
   const [showForm, setShowForm] = useState(false);
+  const [weights, setWeights] = useState({ impact: 0.5, confidence: 0.3, effort: 0.2 });
+
+  // persistence
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('pmcopilot_features');
+      const savedWeights = localStorage.getItem('pmcopilot_feature_weights');
+      if (saved) setFeatures(JSON.parse(saved));
+      if (savedWeights) setWeights(JSON.parse(savedWeights));
+    } catch {}
+  }, []);
+  useEffect(() => {
+    const id = setTimeout(() => {
+      try { localStorage.setItem('pmcopilot_features', JSON.stringify(features)); } catch {}
+    }, 300);
+    return () => clearTimeout(id);
+  }, [features]);
+  useEffect(() => {
+    try { localStorage.setItem('pmcopilot_feature_weights', JSON.stringify(weights)); } catch {}
+  }, [weights]);
 
   const calculatePriorityScore = (feature: Feature) => {
-    return Math.round((feature.impact * feature.confidence / 10) / feature.effort * 10);
+    const impactScore = feature.impact * weights.impact;
+    const confidenceScore = feature.confidence * weights.confidence;
+    const effortScore = feature.effort * weights.effort;
+    const score = (impactScore + confidenceScore) / Math.max(1, effortScore);
+    return Math.round(score * 10);
   };
 
   const getSortedFeatures = () => {
     return [...features].sort((a, b) => calculatePriorityScore(b) - calculatePriorityScore(a));
+  };
+
+  const exportCSV = () => {
+    const header = ['Name','Category','Impact','Effort','Confidence','Score'];
+    const rows = getSortedFeatures().map(f => [f.name, f.category, f.impact, f.effort, f.confidence, calculatePriorityScore(f)]);
+    const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'feature_priorities.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const getQuadrant = (feature: Feature) => {
@@ -81,25 +120,35 @@ const PrioritizationMatrix = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Feature Prioritization Matrix</h2>
             <p className="text-gray-600 mt-1">AI-powered prioritization using Impact vs. Effort analysis</p>
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Feature</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={exportCSV}
+              className="flex items-center space-x-2 bg-white border px-3 py-2 rounded-lg hover:bg-gray-50"
+              title="Export CSV"
+            >
+              <Download className="h-4 w-4 text-gray-700" />
+              <span className="text-sm">Export</span>
+            </button>
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Feature</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Add Feature Form */}
       {showForm && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Feature</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -181,10 +230,25 @@ const PrioritizationMatrix = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Priority Matrix */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Impact vs. Effort Matrix</h3>
+          {/* Weights */}
+          <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="flex items-center text-xs text-gray-600 mb-1"><SlidersHorizontal className="h-3 w-3 mr-1"/>Impact Weight: {weights.impact.toFixed(1)}</label>
+              <input type="range" min="0.1" max="1" step="0.1" value={weights.impact} onChange={(e) => setWeights(w => ({...w, impact: Number(e.target.value)}))} className="w-full" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Confidence Weight: {weights.confidence.toFixed(1)}</label>
+              <input type="range" min="0.1" max="1" step="0.1" value={weights.confidence} onChange={(e) => setWeights(w => ({...w, confidence: Number(e.target.value)}))} className="w-full" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Effort Weight: {weights.effort.toFixed(1)}</label>
+              <input type="range" min="0.1" max="1" step="0.1" value={weights.effort} onChange={(e) => setWeights(w => ({...w, effort: Number(e.target.value)}))} className="w-full" />
+            </div>
+          </div>
           <div className="relative h-96">
             {/* Grid background */}
             <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-1">
@@ -237,7 +301,7 @@ const PrioritizationMatrix = () => {
         </div>
 
         {/* AI Recommendations */}
-        <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+    <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
           <div className="flex items-center space-x-2 mb-4">
             <Zap className="h-5 w-5 text-purple-600" />
             <h3 className="text-lg font-semibold text-purple-900">AI Recommendations</h3>
@@ -249,7 +313,7 @@ const PrioritizationMatrix = () => {
                 <TrendingUp className="h-4 w-4 mr-2" />
                 Top Priority (Quick Wins)
               </h4>
-              {getSortedFeatures().slice(0, 2).map(feature => (
+      {getSortedFeatures().slice(0, 3).map(feature => (
                 <div key={feature.id} className="text-sm text-green-700 mb-1">
                   • {feature.name} (Score: {calculatePriorityScore(feature)})
                 </div>
@@ -282,7 +346,7 @@ const PrioritizationMatrix = () => {
       </div>
 
       {/* Feature List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">Feature Ranking</h3>
           <p className="text-sm text-gray-500">Sorted by AI-calculated priority score</p>
