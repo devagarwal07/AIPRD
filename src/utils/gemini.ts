@@ -1,16 +1,63 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { PRDFormData } from "./ai";
+import { buildUserStoriesPrompt, buildRequirementsPrompt, buildAcceptanceCriteriaPrompt, buildAssessPrompt, buildSuggestionsPrompt } from './prompts';
+import { getPromptVariant } from './prompts';
+import { metric } from './telemetry';
 
 const API_KEY = (import.meta as any).env?.VITE_GEMINI_API_KEY as string | undefined;
 export const geminiEnabled = typeof API_KEY === 'string' && API_KEY.length > 0;
 
-const MODEL_NAME = ((import.meta as any).env?.VITE_GEMINI_MODEL as string) || 'gemini-1.5-flash';
+type GeminiMode = 'flash' | 'pro';
+const ENV_MODEL = ((import.meta as any).env?.VITE_GEMINI_MODEL as string) || '';
+
+// Privacy controls: optional redaction before API calls
+const REDACT_KEY = 'pmcopilot_privacy_redact';
+export function getRedactionEnabled(): boolean {
+  try { return localStorage.getItem(REDACT_KEY) === 'true'; } catch { return false; }
+}
+export function setRedactionEnabled(v: boolean) {
+  try { localStorage.setItem(REDACT_KEY, String(v)); } catch {}
+}
+function redact(text: string): string {
+  // Basic, conservative redaction for emails, URLs, UUID-like tokens, and 16+ digit sequences
+  return text
+    .replace(/([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,})/gi, '[REDACTED_EMAIL]')
+    .replace(/https?:\/\/[\w.-]+(?:\/[\w\-./?%&=]*)?/gi, '[REDACTED_URL]')
+    .replace(/[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}/gi, '[REDACTED_ID]')
+    .replace(/\b\d{16,}\b/g, '[REDACTED_NUMBER]');
+}
+function maybeRedactPrompt(prompt: string): string {
+  return getRedactionEnabled() ? redact(prompt) : prompt;
+}
+
+export function getGeminiMode(): GeminiMode {
+  try {
+    const v = localStorage.getItem('pmcopilot_gemini_mode');
+    return (v === 'pro' || v === 'flash') ? v : 'flash';
+  } catch {
+    return 'flash';
+  }
+}
+
+export function setGeminiMode(mode: GeminiMode) {
+  try { localStorage.setItem('pmcopilot_gemini_mode', mode); } catch {}
+}
+
+function resolveModelName(): string {
+  // Prefer explicit mode toggle; else fall back to env config; else default to flash
+  try {
+    const mode = getGeminiMode();
+    if (mode === 'pro') return 'gemini-1.5-pro';
+    if (mode === 'flash') return 'gemini-1.5-flash';
+  } catch {}
+  return ENV_MODEL || 'gemini-1.5-flash';
+}
 
 function getModel() {
   if (!geminiEnabled) throw new Error('Gemini API key not configured');
   const genAI = new GoogleGenerativeAI(API_KEY!);
   return genAI.getGenerativeModel({
-    model: MODEL_NAME,
+  model: resolveModelName(),
     generationConfig: {
       temperature: 0.4,
       maxOutputTokens: 1024,
@@ -73,10 +120,10 @@ async function toJSON<T = any>(text: string): Promise<T> {
 }
 
 export async function generateUserStoriesGemini(problem: string, solution: string): Promise<string[]> {
-  const prompt = `You are an expert product manager. Given a problem and solution summary, output exactly 5 concise user stories as a JSON array of strings. Do not add numbering or any extra fields. Each story MUST follow the format: "As a <persona>, I want to <goal> so that <benefit>."
-
-Problem:\n${problem}\n\nSolution:\n${solution}`;
-  const text = await getModelText(prompt, 3);
+  // Telemetry: capture active prompt variant and settings
+  try { metric('ai_call', { kind: 'user_stories', variant: getPromptVariant(), mode: getGeminiMode(), redact: getRedactionEnabled() }); } catch {}
+  const prompt = buildUserStoriesPrompt({ problem, solution });
+  const text = await getModelText(maybeRedactPrompt(prompt), 3);
   try {
     const arr = await toJSON<string[]>(text);
     return Array.isArray(arr) && arr.length > 0 ? arr.slice(0, 5) : [];
@@ -91,10 +138,9 @@ Problem:\n${problem}\n\nSolution:\n${solution}`;
 }
 
 export async function generateRequirementsGemini(userStories: string[]): Promise<string[]> {
-  const prompt = `You are an expert product manager. Based on these user stories, produce 8-12 concise requirements as a JSON array of strings. Include a healthy mix of functional and non-functional requirements. Avoid duplicates and keep each under 120 characters.
-
-User stories:\n${userStories.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
-  const text = await getModelText(prompt, 3);
+  try { metric('ai_call', { kind: 'requirements', variant: getPromptVariant(), mode: getGeminiMode(), redact: getRedactionEnabled() }); } catch {}
+  const prompt = buildRequirementsPrompt({ userStories });
+  const text = await getModelText(maybeRedactPrompt(prompt), 3);
   try {
     const arr = await toJSON<string[]>(text);
     return Array.isArray(arr) && arr.length > 0 ? arr.slice(0, 12) : [];
@@ -107,6 +153,36 @@ User stories:\n${userStories.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
   }
 }
 
+export type AcceptanceCriteriaGroup = { story: string; criteria: string[] };
+
+export async function generateAcceptanceCriteriaGemini(userStories: string[]): Promise<AcceptanceCriteriaGroup[]> {
+  if (!Array.isArray(userStories) || userStories.length === 0) return [];
+  try { metric('ai_call', { kind: 'acceptance', variant: getPromptVariant(), mode: getGeminiMode(), redact: getRedactionEnabled() }); } catch {}
+  const prompt = buildAcceptanceCriteriaPrompt({ userStories });
+  const text = await getModelText(maybeRedactPrompt(prompt), 3);
+  try {
+    const arr = await toJSON<AcceptanceCriteriaGroup[]>(text);
+    const sane = (arr || []).map(g => ({
+      story: String(g?.story || ''),
+      criteria: Array.isArray(g?.criteria) ? g.criteria.filter(Boolean) : [],
+    })).filter(g => g.story && g.criteria.length > 0);
+    return sane;
+  } catch {
+    // Fallback: try to parse as lines, split by blank lines per story
+    const blocks = text.split(/\n\s*\n+/);
+    const out: AcceptanceCriteriaGroup[] = [];
+    for (let i = 0; i < Math.min(userStories.length, blocks.length); i++) {
+      const criteria = blocks[i]
+        .split(/\r?\n+/)
+        .map(l => l.replace(/^\s*[-*•\d.\)]\s+/, '').trim())
+        .filter(Boolean)
+        .slice(0, 5);
+      if (criteria.length) out.push({ story: userStories[i], criteria });
+    }
+    return out;
+  }
+}
+
 export type AssessResult = {
   score: number;
   missing: string[];
@@ -115,20 +191,9 @@ export type AssessResult = {
 };
 
 export async function assessPRDGemini(form: PRDFormData): Promise<AssessResult> {
-  const schema = {
-    score: 'number (0-100)',
-    missing: 'string[]',
-    suggestions: 'string[]',
-    checks: 'Array<{ label: string; passed: boolean }>',
-  };
-  const prompt = `Assess this PRD for completeness using PM best practices. Return a strict JSON object only with keys ${Object.keys(schema).join(', ')}.
-- score: overall completeness 0-100
-- missing: gaps to address
-- suggestions: tactical improvements
-- checks: list of boolean checks (label + passed)
-
-PRD JSON:\n${JSON.stringify(form, null, 2)}`;
-  const text = await getModelText(prompt, 2);
+  try { metric('ai_call', { kind: 'assess', variant: getPromptVariant(), mode: getGeminiMode(), redact: getRedactionEnabled() }); } catch {}
+  const prompt = buildAssessPrompt({ formJson: JSON.stringify(form, null, 2) });
+  const text = await getModelText(maybeRedactPrompt(prompt), 2);
   try {
     const obj = await toJSON<AssessResult>(text);
     return {
@@ -150,15 +215,9 @@ PRD JSON:\n${JSON.stringify(form, null, 2)}`;
 
 export async function suggestImprovementsGemini(step: number, form: PRDFormData): Promise<{ suggestions: string[]; objectives?: string[] }> {
   const focus = step === 0 ? 'problem' : step === 1 ? 'solution' : step === 2 ? 'user stories' : 'requirements';
-  const prompt = `You are an expert PM copilot. For the PRD below, produce focused, actionable suggestions for improving the ${focus} of the PRD.
-
-Return STRICT JSON with shape: { "suggestions": string[], "objectives"?: string[] }
-- suggestions: 3-6 concise bullets (max 120 chars each)
-- if step is 1 (solution), also propose 3-5 measurable objectives in "objectives" (short phrases)
-
-Step: ${step}
-PRD JSON:\n${JSON.stringify(form, null, 2)}`;
-  const text = await getModelText(prompt, 3);
+  try { metric('ai_call', { kind: 'suggestions', variant: getPromptVariant(), mode: getGeminiMode(), redact: getRedactionEnabled(), step }); } catch {}
+  const prompt = buildSuggestionsPrompt({ step, focus, formJson: JSON.stringify(form, null, 2) });
+  const text = await getModelText(maybeRedactPrompt(prompt), 3);
   try {
     const obj = await toJSON<{ suggestions: string[]; objectives?: string[] }>(text);
     return {

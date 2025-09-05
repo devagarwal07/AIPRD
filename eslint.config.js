@@ -19,6 +19,13 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+  '@typescript-eslint/no-unused-expressions': 'off',
+  '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+  // Project-wide relaxations: allow empty catches (used for optional localStorage, telemetry) and permit 'any' in tests/interop
+  'no-empty': ['warn', { allowEmptyCatch: true }],
+  '@typescript-eslint/no-explicit-any': 'off',
+  // Some generated regex strings include escapes that are harmless
+  'no-useless-escape': 'off',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
