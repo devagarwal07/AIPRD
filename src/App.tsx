@@ -60,7 +60,7 @@ function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -114,7 +114,7 @@ function App() {
               {user ? (
                 <button
                   onClick={() => setMobileNavOpen((s) => !s)}
-                  className="md:hidden ml-1 p-2 rounded-md border text-gray-700 hover:bg-gray-50"
+                  className="md:hidden ml-1 btn btn-outline p-2"
                   aria-label="Toggle navigation"
                 >
                   {mobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -136,16 +136,12 @@ function App() {
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Desktop nav */}
-          <div className="hidden md:flex space-x-8">
+      <div className="hidden md:flex space-x-8">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setActiveTab(id as any)}
-                className={`flex items-center space-x-2 px-3 py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === id
-                    ? 'text-blue-600 border-blue-500'
-                    : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
-                }`}
+        className={`tab ${activeTab === id ? 'tab-active' : ''}`}
               >
                 <Icon className="h-4 w-4" />
                 <span>{label}</span>

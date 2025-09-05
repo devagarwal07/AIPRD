@@ -13,6 +13,30 @@ interface Feedback {
 }
 
 const StakeholderInput = () => {
+  // Avatar fallback map when image fails to load
+  const [avatarError, setAvatarError] = useState<Record<string, boolean>>({});
+
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    const raw = parts[0] || '';
+    const letters = raw.replace(/[^a-zA-Z]/g, '');
+    return (letters.slice(0, 2) || raw.slice(0, 2)).toUpperCase();
+  };
+
+  // Deterministic color based on name hash for variety
+  const getAvatarClasses = (name: string) => {
+    const palettes = [
+      'bg-blue-100 text-blue-700',
+      'bg-green-100 text-green-700',
+      'bg-amber-100 text-amber-800',
+      'bg-purple-100 text-purple-700',
+      'bg-pink-100 text-pink-700',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    return palettes[hash % palettes.length];
+  };
   const [feedback] = useState<Feedback[]>([
     {
       id: '1',
@@ -155,15 +179,15 @@ const StakeholderInput = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+  <div className="card card-section">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Stakeholder Feedback Hub</h2>
             <p className="text-gray-600 mt-1">Collect and analyze input from cross-functional teams</p>
           </div>
           <div className="flex items-center space-x-2">
-            <button onClick={exportFeedbackCSV} className="text-sm px-3 py-2 rounded-lg border bg-white hover:bg-gray-50">Export CSV</button>
-            <button onClick={exportSummaryMarkdown} className="text-sm px-3 py-2 rounded-lg border bg-white hover:bg-gray-50">Export Summary</button>
+            <button onClick={exportFeedbackCSV} className="btn btn-secondary btn-sm">Export CSV</button>
+            <button onClick={exportSummaryMarkdown} className="btn btn-secondary btn-sm">Export Summary</button>
             <div className="hidden sm:flex items-center space-x-2 bg-blue-50 px-3 py-2 rounded-lg">
               <Users className="h-4 w-4 text-blue-600" />
               <span className="text-sm font-medium text-blue-700">{feedback.length} Active Discussions</span>
@@ -175,8 +199,8 @@ const StakeholderInput = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Feedback List */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
+          <div className="card">
+            <div className="card-section border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">Recent Feedback</h3>
               <p className="text-sm text-gray-500">Latest input from your team and stakeholders</p>
             </div>
@@ -186,11 +210,18 @@ const StakeholderInput = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
-                        <img 
-                          src={`https://images.unsplash.com/photo-150756${item.id}?w=32&h=32&fit=crop&crop=face`}
-                          alt={item.stakeholder}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
+                        {avatarError[item.id] ? (
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${getAvatarClasses(item.stakeholder)}`} aria-label={item.stakeholder}>
+                            {getInitials(item.stakeholder)}
+                          </div>
+                        ) : (
+                          <img
+                            src={`https://images.unsplash.com/photo-150756${item.id}?w=64&h=64&fit=crop&crop=faces&auto=format`}
+                            alt={item.stakeholder}
+                            className="w-8 h-8 rounded-full object-cover"
+                            onError={() => setAvatarError(prev => ({ ...prev, [item.id]: true }))}
+                          />
+                        )}
                         <div>
                           <h4 className="font-medium text-gray-900">{item.stakeholder}</h4>
                           <p className="text-sm text-gray-500">{item.role}</p>
@@ -213,7 +244,7 @@ const StakeholderInput = () => {
                           <Clock className="h-3 w-3" />
                           <span>{item.timestamp}</span>
                         </div>
-                        <button className="text-blue-600 hover:text-blue-700 font-medium">
+                        <button className="btn btn-link font-medium">
                           Reply
                         </button>
                       </div>
@@ -225,45 +256,45 @@ const StakeholderInput = () => {
           </div>
 
           {/* Request Feedback */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
-            <div className="p-6 border-b border-gray-200">
+          <div className="card mt-6">
+            <div className="card-section border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">Request Feedback</h3>
               <p className="text-sm text-gray-500">Get input on specific features or decisions</p>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="card-section space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Feature/Topic</label>
+                <label className="label">Feature/Topic</label>
                 <input
                   type="text"
                   value={newRequest.feature}
                   onChange={(e) => setNewRequest({...newRequest, feature: e.target.value})}
                   placeholder="e.g., Mobile App Redesign, API Rate Limiting"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Stakeholders</label>
+                <label className="label">Stakeholders</label>
                 <input
                   type="text"
                   value={newRequest.stakeholders}
                   onChange={(e) => setNewRequest({...newRequest, stakeholders: e.target.value})}
                   placeholder="Engineering, Design, Sales, Customer Success"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                <label className="label">Message</label>
                 <textarea
                   rows={3}
                   value={newRequest.message}
                   onChange={(e) => setNewRequest({...newRequest, message: e.target.value})}
                   placeholder="What specific feedback do you need? Include context and questions..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input"
                 />
               </div>
               <button
                 onClick={sendFeedbackRequest}
-                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="btn btn-primary flex items-center space-x-2"
               >
                 <Send className="h-4 w-4" />
                 <span>Send Request</span>

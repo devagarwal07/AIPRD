@@ -55,25 +55,27 @@ const Dashboard = ({ user }: Props) => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
-          <div key={index} className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+          <div key={index} className="card">
+            <div className="card-section">
             <div className="flex items-center justify-between mb-2">
               <stat.icon className="h-8 w-8 text-blue-600" />
               <span className="text-2xl font-bold text-gray-900">{stat.value}</span>
             </div>
             <h3 className="text-sm font-medium text-gray-600 mb-1">{stat.label}</h3>
             <p className="text-xs text-green-600">{stat.change}</p>
+            </div>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recent Projects */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+        <div className="card">
+          <div className="card-section border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">Recent Projects</h3>
             <p className="text-sm text-gray-500">Your active PRDs and prioritization work</p>
           </div>
-          <div className="p-6 space-y-4">
+          <div className="card-section space-y-4">
             {recentProjects.map((project, index) => (
               <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div className="flex-1">
@@ -106,12 +108,12 @@ const Dashboard = ({ user }: Props) => {
         </div>
 
         {/* AI Insights */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
+        <div className="card">
+          <div className="card-section border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">AI Insights & Recommendations</h3>
             <p className="text-sm text-gray-500">Powered by your work patterns and best practices</p>
           </div>
-          <div className="p-6 space-y-4">
+          <div className="card-section space-y-4">
             {aiInsights.map((insight, index) => (
               <div key={index} className="flex space-x-4 p-4 bg-gray-50 rounded-lg">
                 <div className={`flex-shrink-0 ${

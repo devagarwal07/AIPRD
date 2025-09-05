@@ -50,3 +50,23 @@ npm run preview
 - Import/export to GDocs/Notion and Slack notifications
 - Multi-user accounts and collaboration with roles
 - Analytics tying prioritization to post-launch impact
+
+## Optional: Enable Gemini AI
+
+You can plug in Google Gemini to generate smarter user stories/requirements and a model-based completeness score.
+
+1) Create a `.env` file at the project root with:
+
+```
+VITE_GEMINI_API_KEY=your_api_key
+VITE_GEMINI_MODEL=gemini-1.5-flash
+```
+
+2) Install the SDK and run:
+
+```
+npm install @google/generative-ai
+npm run dev
+```
+
+When the key is present, PRD Builder will use Gemini; otherwise it falls back to local deterministic helpers.

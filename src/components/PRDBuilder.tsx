@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Lightbulb, Users, Target, CheckCircle, ArrowRight, Download, Sparkles, Wand2, ListChecks } from 'lucide-react';
-import { assessPRD, generateRequirements, generateUserStories } from '../utils/ai';
+import { assessPRDGemini, generateRequirementsGemini, generateUserStoriesGemini, suggestImprovementsGemini, geminiEnabled } from '../utils/gemini';
 
 const PRDBuilder = () => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -30,60 +30,97 @@ const PRDBuilder = () => {
     { title: 'Requirements', icon: CheckCircle }
   ];
 
-  const aiSuggestions = {
-    0: [
-      "Consider framing the problem from the user's perspective",
-      "Include quantitative data about the problem's impact",
-      "Mention competitive landscape or market opportunity"
-    ],
-    1: [
-      "Describe the core value proposition clearly",
-      "Outline the main user journey or workflow",
-      "Consider technical feasibility and constraints"
-    ],
-    2: [
-      "Write stories in 'As a [user], I want [goal] so that [benefit]' format",
-      "Prioritize stories by user value and business impact",
-      "Include edge cases and error scenarios"
-    ],
-    3: [
-      "Separate functional and non-functional requirements",
-      "Include success metrics and acceptance criteria",
-      "Consider security, performance, and accessibility"
-    ]
-  };
+  // Live, step-specific Gemini suggestions and optional objectives
+  const [stepSuggestions, setStepSuggestions] = useState<string[]>([]);
+  const [stepObjectives, setStepObjectives] = useState<string[]>([]);
+  const [stepLoading, setStepLoading] = useState(false);
+  // Track auto-apply for Problem/Solution and backups for undo
+  const [autoApplied, setAutoApplied] = useState<{ problem: boolean; solution: boolean }>({ problem: false, solution: false });
+  const [backup, setBackup] = useState<{ problem: string; solution: string }>({ problem: '', solution: '' });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setStepLoading(true);
+        const res = await suggestImprovementsGemini(currentStep, {
+          title: formData.title,
+          problem: formData.problem,
+          solution: formData.solution,
+          objectives: formData.objectives as string[],
+          userStories: formData.userStories as string[],
+          requirements: formData.requirements as string[],
+        });
+        if (!cancelled) {
+          setStepSuggestions(res.suggestions || []);
+          setStepObjectives(res.objectives || []);
+          // Auto-apply first suggestion into the active field for Problem/Solution if it's empty
+          if (currentStep === 0 && !autoApplied.problem) {
+            const first = (res.suggestions || [])[0];
+            if (first && !String(formData.problem || '').trim()) {
+              setBackup((b) => ({ ...b, problem: formData.problem }));
+              updateFormData('problem', first);
+              setAutoApplied((s) => ({ ...s, problem: true }));
+            }
+          }
+          if (currentStep === 1 && !autoApplied.solution) {
+            const first = (res.suggestions || [])[0];
+            if (first && !String(formData.solution || '').trim()) {
+              setBackup((b) => ({ ...b, solution: formData.solution }));
+              updateFormData('solution', first);
+              setAutoApplied((s) => ({ ...s, solution: true }));
+            }
+          }
+        }
+      } catch {
+        if (!cancelled) { setStepSuggestions([]); setStepObjectives([]); }
+      } finally {
+        if (!cancelled) setStepLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentStep, formData.title, formData.problem, formData.solution, formData.objectives, formData.userStories, formData.requirements, autoApplied.problem, autoApplied.solution]);
 
-  const generateAISuggestion = (step: number, _content: string) => {
-    const suggestions: Record<number, string[]> = {
-      0: [
-        "Based on industry trends, consider adding user pain points around mobile experience",
-        "This problem aligns with common SaaS challenges. Consider mentioning scalability concerns",
-        "Great problem statement! You might want to add specific user segments affected"
-      ],
-      1: [
-        "Your solution approach looks solid. Consider how this integrates with existing workflows",
-        "This solution could benefit from a phased rollout approach",
-        "Excellent direction! Think about measuring user adoption metrics"
-      ]
+  // On entering Step 1, auto-populate Objectives from Gemini once if empty
+  useEffect(() => {
+    if (currentStep === 1 && (formData.objectives as string[]).length === 0 && stepObjectives.length > 0) {
+      updateFormData('objectives', stepObjectives);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, stepObjectives]);
+
+  // Live Gemini assessment
+  const [liveGeminiScore, setLiveGeminiScore] = useState<number | null>(null);
+  const [liveGaps, setLiveGaps] = useState<string[]>([]);
+  const [liveImprovements, setLiveImprovements] = useState<string[]>([]);
+  useEffect(() => {
+    if (!formData.problem && !formData.solution) return setLiveGeminiScore(null);
+    const ctrl = new AbortController();
+    const run = async () => {
+      try {
+        const res = await assessPRDGemini({
+          title: formData.title,
+          problem: formData.problem,
+          solution: formData.solution,
+          objectives: formData.objectives as string[],
+          userStories: formData.userStories as string[],
+          requirements: formData.requirements as string[],
+        });
+        if (!ctrl.signal.aborted) {
+          setLiveGeminiScore(res.score);
+          setLiveGaps(res.missing || []);
+          setLiveImprovements(res.suggestions || []);
+        }
+      } catch {
+        if (!ctrl.signal.aborted) {
+          setLiveGeminiScore(null);
+          setLiveGaps([]);
+          setLiveImprovements([]);
+        }
+      }
     };
-    
-    return suggestions[step] ? suggestions[step][Math.floor(Math.random() * suggestions[step].length)] : "Keep refining your content!";
-  };
-
-  const dynamicSuggestion = useMemo(() => {
-    const content = `${formData.problem}\n${formData.solution}`;
-    return generateAISuggestion(currentStep, content);
-  }, [currentStep, formData.problem, formData.solution]);
-
-  // PRD completeness assessment
-  const prdAssessment = useMemo(() => assessPRD({
-    title: formData.title,
-    problem: formData.problem,
-    solution: formData.solution,
-    objectives: formData.objectives as string[],
-    userStories: formData.userStories as string[],
-    requirements: formData.requirements as string[],
-  }), [formData]);
+    const id = setTimeout(run, 600);
+    return () => { ctrl.abort(); clearTimeout(id); };
+  }, [formData.title, formData.problem, formData.solution, formData.objectives, formData.userStories, formData.requirements]);
 
   // Load/save draft in localStorage
   useEffect(() => {
@@ -118,17 +155,24 @@ const PRDBuilder = () => {
     setFormData((prev: FormState) => ({ ...prev, [field]: value }));
   };
 
-  const autoGenerateStories = () => {
-    const stories = generateUserStories(formData.problem, formData.solution);
-    updateFormData('userStories', stories);
+  const autoGenerateStories = async () => {
+    // Indicate background generation to avoid duplicate triggers
+    setGeneratingStories(true);
+    try {
+      const stories = await generateUserStoriesGemini(formData.problem, formData.solution);
+      if (stories.length) updateFormData('userStories', stories);
+    } finally {
+      setGeneratingStories(false);
+    }
   };
 
-  const autoGenerateRequirements = () => {
-    const reqs = generateRequirements(formData.userStories as string[]);
-    updateFormData('requirements', reqs);
+  const autoGenerateRequirements = async () => {
+    const reqs = await generateRequirementsGemini(formData.userStories as string[]);
+    if (reqs.length) updateFormData('requirements', reqs);
   };
 
   const exportPRD = () => {
+  const completenessText = `Gemini Score: ${liveGeminiScore ?? '—'}/100\nMissing: ${liveGaps.length ? liveGaps.map((m) => `"${m}"`).join(', ') : 'None'}`;
   const prdContent = `
 # ${formData.title || 'Product Requirements Document'}
 
@@ -153,9 +197,8 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
 - User satisfaction scores
 - Business impact measurements
 
-## Completeness Score
-- Score: ${prdAssessment.score}/100
-- Missing: ${prdAssessment.missing.length ? prdAssessment.missing.map((m: string) => `"${m}"`).join(', ') : 'None'}
+## Completeness Score (Gemini)
+${completenessText}
 
 ---
 *Generated by PM Copilot AI Assistant*
@@ -172,10 +215,47 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
     URL.revokeObjectURL(url);
   };
 
+  // --- Auto suggestions: when entering Step 2 (User Stories), kick off generation if empty ---
+  const [generatingStories, setGeneratingStories] = useState(false);
+  useEffect(() => {
+    if (currentStep === 2 && formData.userStories.length === 0 && !generatingStories) {
+      // Fire-and-forget; relies on Gemini using any available context (problem/solution) if present
+      autoGenerateStories();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
+
+  // --- Auto-generate Requirements on entering Step 3. If no stories, draft them first ---
+  const [generatingRequirements, setGeneratingRequirements] = useState(false);
+  useEffect(() => {
+    if (currentStep !== 3 || generatingRequirements) return;
+    if (formData.requirements.length > 0) return;
+    (async () => {
+      setGeneratingRequirements(true);
+      try {
+        let stories = formData.userStories;
+        if (stories.length === 0) {
+          const generatedStories = await generateUserStoriesGemini(formData.problem, formData.solution);
+          if (generatedStories.length) {
+            stories = generatedStories;
+            updateFormData('userStories', generatedStories);
+          }
+        }
+        if (stories.length > 0) {
+          const reqs = await generateRequirementsGemini(stories as string[]);
+          if (reqs.length) updateFormData('requirements', reqs);
+        }
+      } finally {
+        setGeneratingRequirements(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
+
   return (
   <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+      <div className="card card-section mb-8">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">AI-Powered PRD Builder</h2>
@@ -183,19 +263,41 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
           </div>
           <button
             onClick={exportPRD}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="btn btn-primary flex items-center space-x-2"
           >
             <Download className="h-4 w-4" />
             <span>Export PRD</span>
           </button>
         </div>
+                {currentStep === 0 && autoApplied.problem && (
+                  <div className="text-xs text-purple-700 mt-2">
+                    Applied first suggestion to Problem.{' '}
+                    <button
+                      className="text-blue-600 hover:text-blue-700 underline"
+                      onClick={() => { updateFormData('problem', backup.problem); setAutoApplied((s) => ({ ...s, problem: false })); }}
+                    >
+                      Undo
+                    </button>
+                  </div>
+                )}
+                {currentStep === 1 && autoApplied.solution && (
+                  <div className="text-xs text-purple-700 mt-2">
+                    Applied first suggestion to Solution.{' '}
+                    <button
+                      className="text-blue-600 hover:text-blue-700 underline"
+                      onClick={() => { updateFormData('solution', backup.solution); setAutoApplied((s) => ({ ...s, solution: false })); }}
+                    >
+                      Undo
+                    </button>
+                  </div>
+                )}
       </div>
 
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* Main Content */}
         <div className="lg:col-span-2">
           {/* Progress Steps */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
+          <div className="card card-section mb-6">
             <div className="flex items-center justify-between">
               {steps.map((step, index) => (
                 <div key={index} className="flex items-center">
@@ -226,11 +328,11 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
           </div>
 
           {/* Step Content */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+          <div className="card card-section">
             {currentStep === 0 && (
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="label">
                     PRD Title
                   </label>
                   <input
@@ -238,11 +340,11 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
                     value={formData.title}
                     onChange={(e) => updateFormData('title', e.target.value)}
                     placeholder="e.g., Mobile App Push Notifications Feature"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="label">
                     Problem Statement
                   </label>
                   <textarea
@@ -250,7 +352,7 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
                     onChange={(e) => updateFormData('problem', e.target.value)}
                     rows={6}
                     placeholder="Describe the user problem you're solving... Include user segment, impact, frequency, and current workaround."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                   />
                 </div>
               </div>
@@ -259,7 +361,7 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
             {currentStep === 1 && (
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="label">
                     Solution Overview
                   </label>
                   <textarea
@@ -267,11 +369,11 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
                     onChange={(e) => updateFormData('solution', e.target.value)}
                     rows={6}
                     placeholder="Describe your proposed solution... Outline value proposition, approach, and rollout phases."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="input"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Objectives</label>
+                  <label className="label">Objectives</label>
                   <div className="space-y-3">
                     {(formData.objectives as string[]).map((obj: string, index: number) => (
                       <div key={index} className="flex items-center space-x-3">
@@ -284,13 +386,13 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
                             updateFormData('objectives', next);
                           }}
                           placeholder="e.g., Improve D7 retention by +5%"
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="input flex-1"
                         />
                       </div>
                     ))}
                     <button
                       onClick={() => updateFormData('objectives', [...(formData.objectives as string[]), ''])}
-                      className="w-full px-4 py-2 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-700 transition-colors"
+                      className="w-full btn btn-secondary"
                     >
                       + Add Objective
                     </button>
@@ -302,10 +404,16 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
             {currentStep === 2 && (
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="label">
                     User Stories
                   </label>
                   <div className="space-y-3">
+                    {generatingStories && formData.userStories.length === 0 && (
+                      <div className="text-sm text-purple-700 flex items-center space-x-2">
+                        <Sparkles className="h-4 w-4 text-purple-600" />
+                        <span>Getting Gemini suggestions…</span>
+                      </div>
+                    )}
                     {formData.userStories.map((story: string, index: number) => (
                       <div key={index} className="flex items-center space-x-3">
                         <input
@@ -317,19 +425,19 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
                             updateFormData('userStories', newStories);
                           }}
                           placeholder="As a [user], I want [goal] so that [benefit]"
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="input flex-1"
                         />
                       </div>
                     ))}
                     <button
                       onClick={() => updateFormData('userStories', [...formData.userStories, ''])}
-                      className="w-full px-4 py-2 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-700 transition-colors"
+            className="w-full btn btn-secondary"
                     >
                       + Add User Story
                     </button>
                     <button
                       onClick={autoGenerateStories}
-                      className="w-full mt-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2"
+            className="w-full mt-2 btn btn-primary flex items-center justify-center space-x-2"
                     >
                       <Wand2 className="h-4 w-4" />
                       <span>Generate Suggested Stories</span>
@@ -342,10 +450,16 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
             {currentStep === 3 && (
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="label">
                     Requirements
                   </label>
                   <div className="space-y-3">
+                    {generatingRequirements && formData.requirements.length === 0 && (
+                      <div className="text-sm text-purple-700 flex items-center space-x-2">
+                        <Sparkles className="h-4 w-4 text-purple-600" />
+                        <span>Drafting requirements with Gemini…</span>
+                      </div>
+                    )}
                     {formData.requirements.map((req: string, index: number) => (
                       <div key={index} className="flex items-center space-x-3">
                         <input
@@ -357,19 +471,19 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
                             updateFormData('requirements', newReqs);
                           }}
                           placeholder="Functional or non-functional requirement"
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="input flex-1"
                         />
                       </div>
                     ))}
                     <button
                       onClick={() => updateFormData('requirements', [...formData.requirements, ''])}
-                      className="w-full px-4 py-2 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-gray-400 hover:text-gray-700 transition-colors"
+            className="w-full btn btn-secondary"
                     >
                       + Add Requirement
                     </button>
                     <button
                       onClick={autoGenerateRequirements}
-                      className="w-full mt-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2"
+            className="w-full mt-2 btn btn-primary flex items-center justify-center space-x-2"
                     >
                       <ListChecks className="h-4 w-4" />
                       <span>Generate Suggested Requirements</span>
@@ -384,25 +498,25 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
               <button
                 onClick={handlePrevious}
                 disabled={currentStep === 0}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  currentStep === 0
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
+                className={`btn ${currentStep === 0 ? 'btn-secondary opacity-60 cursor-not-allowed' : 'btn-secondary'}`}
               >
                 Previous
               </button>
-              <button
-                onClick={handleNext}
-                disabled={currentStep === steps.length - 1}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  currentStep === steps.length - 1
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                Next Step
-              </button>
+              {currentStep < steps.length - 1 ? (
+                <button
+                  onClick={handleNext}
+                  className={`btn btn-primary`}
+                >
+                  Next Step
+                </button>
+              ) : (
+                <button
+                  onClick={exportPRD}
+                  className={`btn btn-success`}
+                >
+                  Finish (Export PRD)
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -417,19 +531,67 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
             
             <div className="space-y-4">
               <div className="bg-white/60 rounded-lg p-4">
-                <h4 className="font-medium text-purple-900 mb-2">Smart Suggestions</h4>
-                <ul className="text-sm text-purple-700 space-y-2">
-                  {aiSuggestions[currentStep as keyof typeof aiSuggestions]?.map((suggestion, index) => (
-                    <li key={index} className="flex items-start space-x-2">
-                      <span className="text-purple-400 mt-1">•</span>
-                      <span>{suggestion}</span>
-                    </li>
-                  ))}
-                  <li className="flex items-start space-x-2">
-                    <span className="text-purple-400 mt-1">•</span>
-                    <span className="italic">{dynamicSuggestion}</span>
-                  </li>
-                </ul>
+                <h4 className="font-medium text-purple-900 mb-2">Gemini Suggestions</h4>
+                {stepLoading && (
+                  <p className="text-sm text-purple-700 flex items-center space-x-2">
+                    <Sparkles className="h-4 w-4 text-purple-600" />
+                    <span>Thinking…</span>
+                  </p>
+                )}
+                {!stepLoading && stepSuggestions.length === 0 ? (
+                  <div className="text-sm text-purple-700">
+                    <p>
+                      {geminiEnabled ? 'No suggestions yet. Add content in this step to get ideas.' : 'Gemini is not configured. Add VITE_GEMINI_API_KEY in .env to enable suggestions.'}
+                    </p>
+                    {geminiEnabled && (
+                      <button
+                        className="mt-2 text-xs text-blue-600 hover:text-blue-700 underline"
+                        onClick={() => {
+                          // Trigger suggestions refetch by nudging step state
+                          setCurrentStep((s) => s);
+                        }}
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                ) : (!stepLoading && stepSuggestions.length > 0 ? (
+                  <ul className="text-sm text-purple-700 space-y-2">
+                    {stepSuggestions.map((s, i) => (
+                      <li key={i} className="flex items-start justify-between space-x-2">
+                        <div className="flex items-start space-x-2">
+                          <span className="text-purple-400 mt-1">•</span>
+                          <span>{s}</span>
+                        </div>
+                        {currentStep === 0 && (
+                          <button className="text-xs text-blue-600 hover:text-blue-700" onClick={() => updateFormData('problem', (formData.problem ? formData.problem + '\n' : '') + s)}>Use</button>
+                        )}
+                        {currentStep === 1 && (
+                          <button className="text-xs text-blue-600 hover:text-blue-700" onClick={() => updateFormData('solution', (formData.solution ? formData.solution + '\n' : '') + s)}>Use</button>
+                        )}
+                        {currentStep === 2 && (
+                          <button className="text-xs text-blue-600 hover:text-blue-700" onClick={() => updateFormData('userStories', [...formData.userStories, s])}>Add</button>
+                        )}
+                        {currentStep === 3 && (
+                          <button className="text-xs text-blue-600 hover:text-blue-700" onClick={() => updateFormData('requirements', [...formData.requirements, s])}>Add</button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null)}
+                {currentStep === 1 && stepObjectives.length > 0 && (
+                  <div className="mt-4">
+                    <h5 className="font-medium text-purple-900 mb-1">Suggested Objectives</h5>
+                    <ul className="text-sm text-purple-700 space-y-1">
+                      {stepObjectives.map((o, i) => (
+                        <li key={i} className="flex items-center justify-between">
+                          <span>{o}</span>
+                          <button className="text-xs text-blue-600 hover:text-blue-700" onClick={() => updateFormData('objectives', [...(formData.objectives as string[]), o])}>Add</button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               <div className="bg-white/60 rounded-lg p-4">
@@ -446,17 +608,27 @@ ${formData.requirements.map((req: string, i: number) => `${i + 1}. ${req}`).join
                 <h4 className="font-medium text-purple-900 mb-2">Completeness</h4>
                 <div className="text-sm text-purple-700">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium">Score</span>
-                    <span className={`font-bold ${prdAssessment.score >= 80 ? 'text-green-700' : prdAssessment.score >= 60 ? 'text-amber-700' : 'text-red-700'}`}>
-                      {prdAssessment.score}/100
+                    <span className="font-medium">Gemini Score</span>
+                    <span className={`font-bold ${Number(liveGeminiScore) >= 80 ? 'text-green-700' : Number(liveGeminiScore) >= 60 ? 'text-amber-700' : 'text-red-700'}`}>
+                      {liveGeminiScore ?? '—'}/100
                     </span>
                   </div>
-                  {prdAssessment.missing.length > 0 && (
+                  {liveGaps.length > 0 && (
                     <div className="mt-2">
                       <div className="font-medium mb-1">Gaps</div>
                       <ul className="list-disc ml-5 space-y-1">
-                        {prdAssessment.missing.map((m, i) => (
+                        {liveGaps.map((m, i) => (
                           <li key={i}>{m}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {liveImprovements.length > 0 && (
+                    <div className="mt-2">
+                      <div className="font-medium mb-1">Improvements</div>
+                      <ul className="list-disc ml-5 space-y-1">
+                        {liveImprovements.map((s, i) => (
+                          <li key={i}>{s}</li>
                         ))}
                       </ul>
                     </div>

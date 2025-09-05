@@ -120,7 +120,7 @@ const PrioritizationMatrix = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+  <div className="card card-section">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Feature Prioritization Matrix</h2>
@@ -129,7 +129,7 @@ const PrioritizationMatrix = () => {
           <div className="flex items-center space-x-2">
             <button
               onClick={exportCSV}
-              className="flex items-center space-x-2 bg-white border px-3 py-2 rounded-lg hover:bg-gray-50"
+              className="btn btn-secondary flex items-center space-x-2"
               title="Export CSV"
             >
               <Download className="h-4 w-4 text-gray-700" />
@@ -137,7 +137,7 @@ const PrioritizationMatrix = () => {
             </button>
             <button
               onClick={() => setShowForm(!showForm)}
-              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="btn btn-primary flex items-center space-x-2"
             >
               <Plus className="h-4 w-4" />
               <span>Add Feature</span>
@@ -148,25 +148,25 @@ const PrioritizationMatrix = () => {
 
       {/* Add Feature Form */}
       {showForm && (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+  <div className="card card-section">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Feature</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Feature Name</label>
+              <label className="label">Feature Name</label>
               <input
                 type="text"
                 value={newFeature.name}
                 onChange={(e) => setNewFeature({...newFeature, name: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="input"
                 placeholder="e.g., Real-time Chat"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+              <label className="label">Category</label>
               <select
                 value={newFeature.category}
                 onChange={(e) => setNewFeature({...newFeature, category: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="input"
               >
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -174,7 +174,7 @@ const PrioritizationMatrix = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="label">
                 Impact (1-10): {newFeature.impact}
               </label>
               <input
@@ -187,7 +187,7 @@ const PrioritizationMatrix = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="label">
                 Effort (1-10): {newFeature.effort}
               </label>
               <input
@@ -200,7 +200,7 @@ const PrioritizationMatrix = () => {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="label">
                 Confidence (1-10): {newFeature.confidence}
               </label>
               <input
@@ -216,13 +216,13 @@ const PrioritizationMatrix = () => {
           <div className="flex space-x-3 mt-4">
             <button
               onClick={addFeature}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="btn btn-primary"
             >
               Add Feature
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              className="btn btn-secondary"
             >
               Cancel
             </button>
@@ -232,7 +232,7 @@ const PrioritizationMatrix = () => {
 
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Priority Matrix */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="card card-section">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Impact vs. Effort Matrix</h3>
           {/* Weights */}
           <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -345,9 +345,9 @@ const PrioritizationMatrix = () => {
         </div>
       </div>
 
-      {/* Feature List */}
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
+  {/* Feature List */}
+  <div className="card">
+    <div className="card-section border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">Feature Ranking</h3>
           <p className="text-sm text-gray-500">Sorted by AI-calculated priority score</p>
         </div>

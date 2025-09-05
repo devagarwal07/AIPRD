@@ -40,7 +40,7 @@ export default function Login({ onLogin }: { onLogin: (user: AuthUser) => void }
 
   return (
     <div className="max-w-md mx-auto px-4 sm:px-0">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+      <div className="card card-section">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{mode === 'signin' ? 'Welcome back' : 'Create your account'}</h2>
@@ -63,7 +63,7 @@ export default function Login({ onLogin }: { onLogin: (user: AuthUser) => void }
               <div className="relative">
                 <input
                   type="text"
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="input pl-10"
                   placeholder="Your name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -77,7 +77,7 @@ export default function Login({ onLogin }: { onLogin: (user: AuthUser) => void }
               <Mail className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="email"
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="input pl-10"
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -90,7 +90,7 @@ export default function Login({ onLogin }: { onLogin: (user: AuthUser) => void }
               <Lock className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="password"
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="input pl-10"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -106,7 +106,7 @@ export default function Login({ onLogin }: { onLogin: (user: AuthUser) => void }
               {mode === 'signin' ? 'Create account' : 'Have an account? Sign in'}
             </button>
           </div>
-          <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+          <button type="submit" className="w-full btn btn-primary">
             {mode === 'signin' ? 'Sign In' : 'Sign Up'}
           </button>
         </form>
