@@ -1,0 +1,297 @@
+import React, { useState } from 'react';
+import { Users, MessageCircle, ThumbsUp, ThumbsDown, Clock, Send, Sparkles, TrendingUp } from 'lucide-react';
+
+interface Feedback {
+  id: string;
+  stakeholder: string;
+  role: string;
+  feature: string;
+  sentiment: 'positive' | 'negative' | 'neutral';
+  priority: 'high' | 'medium' | 'low';
+  comment: string;
+  timestamp: string;
+}
+
+const StakeholderInput = () => {
+  const [feedback] = useState<Feedback[]>([
+    {
+      id: '1',
+      stakeholder: 'Sarah Chen',
+      role: 'Engineering Manager',
+      feature: 'Push Notifications',
+      sentiment: 'positive',
+      priority: 'high',
+      comment: 'This aligns well with our mobile strategy. Implementation looks straightforward with our current tech stack.',
+      timestamp: '2 hours ago'
+    },
+    {
+      id: '2',
+      stakeholder: 'Mike Rodriguez',
+      role: 'Design Lead',
+      feature: 'Dark Mode',
+      sentiment: 'positive',
+      priority: 'medium',
+      comment: 'Great for user experience! We should ensure accessibility compliance and consider system preferences.',
+      timestamp: '4 hours ago'
+    },
+    {
+      id: '3',
+      stakeholder: 'Lisa Wang',
+      role: 'Data Analyst',
+      feature: 'Advanced Analytics',
+      sentiment: 'negative',
+      priority: 'low',
+      comment: 'Concerns about data privacy and GDPR compliance. Need more clarity on data collection methods.',
+      timestamp: '1 day ago'
+    },
+    {
+      id: '4',
+      stakeholder: 'David Thompson',
+      role: 'Sales Director',
+      feature: 'In-App Messaging',
+      sentiment: 'positive',
+      priority: 'high',
+      comment: 'This could significantly improve customer engagement and reduce support tickets. Strong business case.',
+      timestamp: '1 day ago'
+    },
+    {
+      id: '5',
+      stakeholder: 'Emma Foster',
+      role: 'Customer Success',
+      feature: 'Offline Mode',
+      sentiment: 'neutral',
+      priority: 'medium',
+      comment: 'Users have requested this, but implementation complexity might not justify the effort right now.',
+      timestamp: '2 days ago'
+    }
+  ]);
+
+  const [newRequest, setNewRequest] = useState({
+    feature: '',
+    stakeholders: '',
+    message: ''
+  });
+
+  const getSentimentIcon = (sentiment: string) => {
+    switch (sentiment) {
+      case 'positive': return <ThumbsUp className="h-4 w-4 text-green-500" />;
+      case 'negative': return <ThumbsDown className="h-4 w-4 text-red-500" />;
+      default: return <MessageCircle className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'low': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const sendFeedbackRequest = () => {
+    // Simulate sending feedback request
+    setNewRequest({ feature: '', stakeholders: '', message: '' });
+    alert('Feedback request sent to stakeholders!');
+  };
+
+  const getAISummary = () => {
+    const totalFeedback = feedback.length;
+    const positiveCount = feedback.filter(f => f.sentiment === 'positive').length;
+    const highPriorityCount = feedback.filter(f => f.priority === 'high').length;
+    
+    return {
+      totalFeedback,
+      positiveRate: Math.round((positiveCount / totalFeedback) * 100),
+      highPriorityFeatures: highPriorityCount,
+      topConcerns: ['Data privacy compliance', 'Implementation complexity', 'Resource allocation']
+    };
+  };
+
+  const aiSummary = getAISummary();
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Stakeholder Feedback Hub</h2>
+            <p className="text-gray-600 mt-1">Collect and analyze input from cross-functional teams</p>
+          </div>
+          <div className="flex items-center space-x-2 bg-blue-50 px-3 py-2 rounded-lg">
+            <Users className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium text-blue-700">{feedback.length} Active Discussions</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Feedback List */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Recent Feedback</h3>
+              <p className="text-sm text-gray-500">Latest input from your team and stakeholders</p>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {feedback.map((item) => (
+                <div key={item.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <img 
+                          src={`https://images.unsplash.com/photo-150756${item.id}?w=32&h=32&fit=crop&crop=face`}
+                          alt={item.stakeholder}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                        <div>
+                          <h4 className="font-medium text-gray-900">{item.stakeholder}</h4>
+                          <p className="text-sm text-gray-500">{item.role}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2 mb-3">
+                        <span className="text-sm font-medium text-gray-700">Feature:</span>
+                        <span className="text-sm text-blue-600">{item.feature}</span>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(item.priority)}`}>
+                          {item.priority}
+                        </span>
+                      </div>
+                      
+                      <p className="text-gray-700 mb-3">{item.comment}</p>
+                      
+                      <div className="flex items-center justify-between text-sm text-gray-500">
+                        <div className="flex items-center space-x-2">
+                          {getSentimentIcon(item.sentiment)}
+                          <Clock className="h-3 w-3" />
+                          <span>{item.timestamp}</span>
+                        </div>
+                        <button className="text-blue-600 hover:text-blue-700 font-medium">
+                          Reply
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Request Feedback */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mt-6">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Request Feedback</h3>
+              <p className="text-sm text-gray-500">Get input on specific features or decisions</p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Feature/Topic</label>
+                <input
+                  type="text"
+                  value={newRequest.feature}
+                  onChange={(e) => setNewRequest({...newRequest, feature: e.target.value})}
+                  placeholder="e.g., Mobile App Redesign, API Rate Limiting"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Stakeholders</label>
+                <input
+                  type="text"
+                  value={newRequest.stakeholders}
+                  onChange={(e) => setNewRequest({...newRequest, stakeholders: e.target.value})}
+                  placeholder="Engineering, Design, Sales, Customer Success"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                <textarea
+                  rows={3}
+                  value={newRequest.message}
+                  onChange={(e) => setNewRequest({...newRequest, message: e.target.value})}
+                  placeholder="What specific feedback do you need? Include context and questions..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <button
+                onClick={sendFeedbackRequest}
+                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Send className="h-4 w-4" />
+                <span>Send Request</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* AI Analysis Sidebar */}
+        <div className="lg:col-span-1">
+          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+            <div className="flex items-center space-x-2 mb-4">
+              <Sparkles className="h-5 w-5 text-purple-600" />
+              <h3 className="font-semibold text-purple-900">AI Analysis</h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-white/60 rounded-lg p-4">
+                <h4 className="font-medium text-purple-900 mb-3">Feedback Summary</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-purple-700">Total Feedback</span>
+                    <span className="font-medium text-purple-900">{aiSummary.totalFeedback}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-purple-700">Positive Rate</span>
+                    <span className="font-medium text-green-600">{aiSummary.positiveRate}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-purple-700">High Priority</span>
+                    <span className="font-medium text-red-600">{aiSummary.highPriorityFeatures}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/60 rounded-lg p-4">
+                <h4 className="font-medium text-purple-900 mb-3 flex items-center">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Key Insights
+                </h4>
+                <ul className="text-sm text-purple-700 space-y-2">
+                  <li>• Engineering team is aligned on technical feasibility</li>
+                  <li>• Strong support for user engagement features</li>
+                  <li>• Data privacy concerns need addressing</li>
+                  <li>• Sales team emphasizes business impact</li>
+                </ul>
+              </div>
+
+              <div className="bg-white/60 rounded-lg p-4">
+                <h4 className="font-medium text-purple-900 mb-3">Top Concerns</h4>
+                <div className="space-y-2">
+                  {aiSummary.topConcerns.map((concern, index) => (
+                    <div key={index} className="text-sm text-purple-700 flex items-center">
+                      <span className="w-2 h-2 bg-purple-400 rounded-full mr-2"></span>
+                      {concern}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white/60 rounded-lg p-4">
+                <h4 className="font-medium text-purple-900 mb-2">Recommended Actions</h4>
+                <ul className="text-sm text-purple-700 space-y-1">
+                  <li>• Schedule data privacy review meeting</li>
+                  <li>• Prioritize high-consensus features</li>
+                  <li>• Follow up on pending feedback</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default StakeholderInput;
