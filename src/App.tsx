@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/clerk-react';
 import { FileText, Brain, Users, Target, Lightbulb, Zap, Menu, X, Moon, Sun } from 'lucide-react';
 import PRDBuilder from './components/PRDBuilder';
 import PrioritizationMatrix from './components/PrioritizationMatrix';
@@ -139,37 +140,24 @@ function App() {
               >
                 {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
-              {user ? (
-                <div className="relative" ref={menuRef}>
-                  <button
-                    onClick={() => setMenuOpen((v) => !v)}
-                    className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    aria-haspopup="menu"
-                    aria-expanded={menuOpen}
-                    aria-label="User menu"
-                  >
-                    {getInitials(user.name || user.email)}
-                  </button>
-                  {menuOpen && (
-                    <div
-                      role="menu"
-                      className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-50"
-                    >
-                      <button
-                        onClick={() => {
-                          setUser(null);
-                          localStorage.removeItem('pmcopilot_user');
-                          setMenuOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        role="menuitem"
-                      >
-                        Log out
-                      </button>
-                    </div>
-                  )}
+              {/* Clerk auth UI */}
+              <SignedOut>
+                <div className="flex items-center gap-2">
+                  <SignInButton mode="modal">
+                    <button className="btn btn-outline btn-sm">Sign In</button>
+                  </SignInButton>
+                  <SignUpButton mode="modal">
+                    <button className="btn btn-primary btn-sm">Sign Up</button>
+                  </SignUpButton>
                 </div>
-              ) : null}
+              </SignedOut>
+              <SignedIn>
+                <UserButton afterSignOutUrl="/" appearance={{ elements: { avatarBox: 'w-8 h-8' } }} />
+              </SignedIn>
+              {/* Legacy local user (will be superseded by Clerk) */}
+              {user && (
+                <div className="relative hidden" ref={menuRef}></div>
+              )}
               {/* Mobile nav toggle */}
               {user ? (
                 <button
@@ -185,12 +173,15 @@ function App() {
         </div>
       </header>
 
-      {/* Gate for unauthenticated */}
-      {!user ? (
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Login onLogin={(u) => setUser(u)} />
-        </main>
-      ) : (
+      {/* App content now visible when either legacy user or Clerk session is present */}
+      <SignedOut>
+        {!user && (
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <Login onLogin={(u) => setUser(u)} />
+          </main>
+        )}
+      </SignedOut>
+      <SignedIn>
       <>
       {/* Navigation */}
       <nav className="bg-white border-b border-gray-200">
@@ -260,8 +251,8 @@ function App() {
         {activeTab === 'prioritization' && <PrioritizationMatrix />}
         {activeTab === 'stakeholders' && <StakeholderInput />}
       </main>
-      </>
-      )}
+  </>
+  </SignedIn>
     </div>
   );
 }

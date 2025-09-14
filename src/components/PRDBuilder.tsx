@@ -8,6 +8,7 @@ import { getSuggestionStats } from '../utils/suggestions';
 import { incSuggestionsApplied, markPrdExported } from '../utils/telemetry';
 import { getPromptVariant, setPromptVariant } from '../utils/prompts';
 import { toast } from '../utils/toast';
+import { Api, backendEnabled } from '../utils/api';
 
 export type Sections = { problem: boolean; solution: boolean; objectives?: boolean; userStories: boolean; requirements: boolean };
 
@@ -80,6 +81,11 @@ export default function PRDBuilder() {
   // Integrations config
   const [integrationCfg, setIntegrationCfg] = useState<IntegrationConfig>(() => getIntegrationConfig());
   const [cfgDraft, setCfgDraft] = useState<IntegrationConfig>(() => integrationCfg);
+  // backend additions
+  const [serverPrdId, setServerPrdId] = useState<string | null>(null);
+  const [serverSaving, setServerSaving] = useState(false);
+  const [lastServerSavedAt, setLastServerSavedAt] = useState<number | null>(null);
+  const [lastServerErrorAt, setLastServerErrorAt] = useState<number | null>(null);
 
   // Snapshots
   type Snapshot = {
@@ -95,6 +101,33 @@ export default function PRDBuilder() {
     try { const raw = localStorage.getItem(SNAP_KEY); return raw ? JSON.parse(raw) as Snapshot[] : []; } catch { return []; }
   });
   useEffect(() => { try { localStorage.setItem(SNAP_KEY, JSON.stringify(snapshots)); } catch {} }, [snapshots]);
+  // Load snapshots from backend when PRD ID available
+  useEffect(() => {
+    if (!backendEnabled() || !serverPrdId) return; let ignore = false;
+    (async () => {
+      try {
+        const remote = await Api.listSnapshots(serverPrdId);
+        if (ignore) return;
+        if (Array.isArray(remote)) {
+          const mapped: Snapshot[] = remote.map((r: any) => ({
+            id: r._id || r.id || Math.random().toString(36).slice(2),
+            ts: new Date(r.createdAt || r.ts || Date.now()).getTime(),
+            note: r.note,
+            formData: r.formData || formData,
+            sections: r.sections || sections,
+            templateId: r.templateId || templateId
+          }));
+          const key = (s: Snapshot) => `${s.ts}-${(s.formData.title||'').slice(0,10)}`;
+          const map = new Map<string, Snapshot>();
+          [...mapped, ...snapshots].forEach(s => { if (!map.has(key(s))) map.set(key(s), s); });
+          const merged = Array.from(map.values()).sort((a,b)=>b.ts-a.ts).slice(0,50);
+          setSnapshots(merged);
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { ignore = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverPrdId]);
 
   function saveSnapshot(note?: string) {
     const snap: Snapshot = {
@@ -107,6 +140,9 @@ export default function PRDBuilder() {
     };
     setSnapshots((prev) => [snap, ...prev].slice(0, 50));
     toast.success('Snapshot saved');
+    if (backendEnabled() && serverPrdId) {
+      Api.createSnapshot({ prdId: serverPrdId, note, formData, sections, templateId }).catch(() => {});
+    }
   }
 
   function restoreSnapshot(s: Snapshot) {
@@ -139,7 +175,10 @@ export default function PRDBuilder() {
   useEffect(() => { try { localStorage.setItem('pmcopilot_prd_template_id', templateId); } catch {} }, [templateId]);
   useEffect(() => { try { localStorage.setItem('pmcopilot_prd_sections', JSON.stringify(sections)); } catch {} }, [sections]);
   useEffect(() => { try { localStorage.setItem('pmcopilot_prd', JSON.stringify(formData)); } catch {} }, [formData]);
-
+  // load backend integration config once
+  useEffect(() => {
+    if (!backendEnabled()) return; let ignore = false; (async () => { try { const remote = await Api.getIntegration(); if (!ignore && remote && Object.keys(remote).length) { const merged = { ...integrationCfg, ...remote }; setIntegrationCfg(merged); setCfgDraft(merged); setIntegrationConfig(merged); } } catch {} })(); return () => { ignore = true; }; // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Effect: refresh suggestions on step change or content change
   useEffect(() => {
     let ignore = false;
@@ -201,6 +240,48 @@ export default function PRDBuilder() {
   const updateFormData = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
+
+  // Backend save helpers
+  async function savePrdToServer(explicit = false) {
+    if (!backendEnabled()) return;
+    setServerSaving(true);
+    try {
+      const payload = {
+        title: formData.title,
+        problem: formData.problem,
+        solution: formData.solution,
+        objectives: formData.objectives.filter(Boolean),
+        userStories: formData.userStories.filter(Boolean),
+        requirements: formData.requirements.filter(Boolean),
+        sections,
+        templateId
+      };
+      if (serverPrdId) {
+        const updated: any = await Api.updatePrd(serverPrdId, payload);
+        if (explicit) toast.success('PRD updated on server');
+        if (updated?._id) setServerPrdId(updated._id);
+      } else {
+        const created: any = await Api.createPrd(payload);
+        if (created?._id) setServerPrdId(created._id);
+        if (explicit) toast.success('PRD saved to server');
+      }
+      setLastServerSavedAt(Date.now());
+    } catch {
+      const now = Date.now();
+      // throttle error toast to at most once every 10s
+      if (!lastServerErrorAt || now - lastServerErrorAt > 10000) {
+        toast.error('Server save failed');
+        setLastServerErrorAt(now);
+      }
+    } finally { setServerSaving(false); }
+  }
+
+  useEffect(() => {
+    if (!backendEnabled()) return;
+    const t = setTimeout(() => { savePrdToServer(false); }, 2500);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.title, formData.problem, formData.solution, formData.objectives.join('\n'), formData.userStories.join('\n'), formData.requirements.join('\n'), sections, templateId]);
 
   const exportPRD = () => {
     const md = prdToMarkdown({
@@ -358,6 +439,14 @@ export default function PRDBuilder() {
             <Download className="h-4 w-4" />
             Export PRD
           </button>
+          {backendEnabled() && (
+            <button onClick={() => savePrdToServer(true)} disabled={serverSaving} className="btn btn-outline btn-sm" title={serverPrdId ? 'Update PRD on server' : 'Create PRD on server'}>
+              {serverSaving ? 'Saving…' : serverPrdId ? 'Save (Server)' : 'Create (Server)'}
+            </button>
+          )}
+          {backendEnabled() && lastServerSavedAt && (
+            <span className="text-[11px] text-gray-500">Saved {new Date(lastServerSavedAt).toLocaleTimeString()}</span>
+          )}
           <div className="inline-flex rounded-md overflow-hidden border border-gray-300">
             <button
               className={`px-2 py-1 text-xs ${modelMode === 'flash' ? 'bg-gray-100 text-gray-900' : 'bg-white text-gray-700'}`}
@@ -797,12 +886,42 @@ export default function PRDBuilder() {
                     <label className="label">Jira Project Hint (optional)</label>
                     <input className="input" placeholder="PROJ" value={cfgDraft.jiraProjectHint || ''} onChange={(e) => setCfgDraft({ ...cfgDraft, jiraProjectHint: e.target.value })} />
                   </div>
+                  <div>
+                    <label className="label">Jira Project Key (API)</label>
+                    <input className="input" placeholder="REALKEY" value={cfgDraft.jiraProjectKey || ''} onChange={(e) => setCfgDraft({ ...cfgDraft, jiraProjectKey: e.target.value.toUpperCase() })} />
+                    <p className="text-[11px] text-gray-500 mt-1">Optional explicit key (A–Z, 2–10 chars) for backend Jira sync. If blank, fallback to hint or PROJ.</p>
+                  </div>
+                  <details className="mt-2 rounded border border-dashed border-gray-300 bg-white/70 px-3 py-2 text-sm">
+                    <summary className="cursor-pointer font-medium text-gray-800">How Lightweight Sync Works</summary>
+                    <div className="mt-2 space-y-2 text-gray-700 leading-snug">
+                      <p>No API keys needed. We open one issue draft in a new tab and copy the rest to your clipboard for quick paste.</p>
+                      <div>
+                        <div className="font-semibold text-gray-900">Linear (Stories)</div>
+                        <ol className="list-decimal list-inside space-y-1">
+                          <li>Set Workspace + optional Team Hint and Save.</li>
+                          <li>Add user stories.</li>
+                          <li>Click <span className="font-mono">Sync Stories to Linear</span>.</li>
+                          <li>First story opens; paste clipboard bullets to create others.</li>
+                        </ol>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-900">Jira (Requirements)</div>
+                        <ol className="list-decimal list-inside space-y-1">
+                          <li>Set Base URL (+ optional Project Hint) and Save.</li>
+                          <li>Add requirements.</li>
+                          <li>Click <span className="font-mono">Sync Requirements to Jira</span>.</li>
+                          <li>First requirement pre-fills summary; paste clipboard list into new issues.</li>
+                        </ol>
+                      </div>
+                      <p>Hints become a prefix like <span className="font-mono">[TEAM]</span> or <span className="font-mono">[PROJ]</span>. Adjust code later for full API sync if needed.</p>
+                    </div>
+                  </details>
                   <div className="flex items-center justify-end gap-2">
                     <button className="btn btn-secondary" onClick={() => { setCfgDraft(integrationCfg); }}>Reset</button>
-                    <button className="btn btn-primary" onClick={() => { setIntegrationConfig(cfgDraft); setIntegrationCfg(cfgDraft); toast.success('Integration settings saved'); }}>Save</button>
+          <button className="btn btn-primary" onClick={async () => { setIntegrationConfig(cfgDraft); setIntegrationCfg(cfgDraft); toast.success('Integration settings saved'); if (backendEnabled()) { try { await Api.saveIntegration(cfgDraft); } catch { toast.error('Server integration save failed'); } } }}>Save</button>
                   </div>
                 </div>
-                <p className="text-xs text-gray-600">These settings are stored locally in your browser. We don’t send them anywhere.</p>
+        <p className="text-xs text-gray-600">{backendEnabled() ? 'Settings stored locally and synced to server.' : 'These settings are stored locally in your browser.'}</p>
               </div>
             )}
           </div>

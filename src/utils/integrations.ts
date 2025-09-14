@@ -20,10 +20,24 @@ export type IntegrationConfig = {
   linearWorkspace?: string; // e.g., your-workspace
   // Hints used to prefix titles/descriptions for routing context (no API binding)
   jiraProjectHint?: string;
+  jiraProjectKey?: string; // new explicit project key for API sync
   linearTeamHint?: string;
 };
 
 const CONFIG_KEY = 'pmcopilot_integrations';
+
+// Optional backend usage
+let backendApi: any = null;
+let backendCheckDone = false;
+async function ensureBackend() {
+  if (backendCheckDone) return backendApi;
+  backendCheckDone = true;
+  try {
+    const mod = await import('./api');
+    if (mod.backendEnabled && mod.backendEnabled()) backendApi = mod.Api;
+  } catch { /* ignore */ }
+  return backendApi;
+}
 
 export function getIntegrationConfig(): IntegrationConfig {
   try {
@@ -130,6 +144,19 @@ export function openJiraIssue(baseUrl: string, summary: string, description?: st
 }
 
 export async function syncItemsToLinear(items: string[], workspace: string, limit = 5): Promise<{ opened: number; copied: number }> {
+  // If backend available and more than 0 items, try API creation (no limit slicing except optional)
+  const api = await ensureBackend();
+  if (api) {
+    try {
+      const cfg = getIntegrationConfig();
+      const hint = cfg.linearTeamHint ? `[${cfg.linearTeamHint}] ` : '';
+      const payload = items.slice(0, limit).map(t => ({ title: hint + t }));
+      const res = await api.syncLinear(payload);
+      return { opened: res.created?.length || 0, copied: 0 };
+    } catch {
+      // fallback to legacy web intent
+    }
+  }
   const slice = items.slice(0, limit);
   let opened = 0;
   let copied = 0;
@@ -151,6 +178,20 @@ export async function syncItemsToLinear(items: string[], workspace: string, limi
 }
 
 export async function syncItemsToJira(items: string[], baseUrl: string, limit = 5): Promise<{ opened: number; copied: number }> {
+  const api = await ensureBackend();
+  if (api) {
+    try {
+      const cfg = getIntegrationConfig();
+      const hint = cfg.jiraProjectHint ? `[${cfg.jiraProjectHint}] ` : '';
+  // prefer explicit project key; fallback heuristic or placeholder
+  const projectKey = cfg.jiraProjectKey || (cfg.jiraProjectHint && /[A-Z]{2,}/.test(cfg.jiraProjectHint) ? cfg.jiraProjectHint : 'PROJ');
+      const payload = items.slice(0, limit).map(t => ({ summary: hint + t, projectKey }));
+      const res = await api.syncJira(payload);
+      return { opened: res.created?.length || 0, copied: 0 };
+    } catch {
+      // fallback to web intent mode
+    }
+  }
   const slice = items.slice(0, limit);
   let opened = 0;
   let copied = 0;
