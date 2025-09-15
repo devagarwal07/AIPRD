@@ -1,0 +1,354 @@
+/*
+	Tailwind CSS entrypoint
+	-----------------------
+	The @tailwind and @apply at-rules are Tailwind/PostCSS directives. Generic CSS linters / the
+	built-in VS Code CSS language service flag them as unknown ("unknownAtRules"). We intentionally
+	suppress those editor warnings via workspace settings (see .vscode/settings.json) instead of
+	scattering disable comments throughout the file. If you add a real non-standard at-rule that is
+	NOT part of Tailwind, consider adding a targeted comment rather than broad suppression.
+
+	Rationale: Keeps the file clean, avoids hiding other potential issues, and still allows teams
+	opting into stylelint to configure its Tailwind plugin for deeper validation.
+*/
+/* stylelint-disable at-rule-no-unknown */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	html {
+		scroll-behavior: smooth;
+		font-size: calc(16px * var(--font-scale, 1));
+	}
+
+	:root {
+		/* Light theme tokens */
+		--font-scale: 1; /* user adjustable font scaling multiplier */
+		--bg: #f0f5ff;
+		--bg-gradient: linear-gradient(to bottom right, #eff6ff, #e0e7ff);
+		--text: #0f172a;
+		/* slate-900 */
+		--muted: #475569;
+		/* slate-600 */
+
+		--card-bg: #ffffff;
+		--card-border: #e5e7eb;
+		/* gray-200 */
+
+		--input-bg: #ffffff;
+		--input-border: #d1d5db;
+		/* gray-300 */
+
+		--btn-primary-bg: #2563eb;
+		--btn-primary-bg-hover: #1d4ed8;
+		--btn-primary-fg: #ffffff;
+
+		--btn-secondary-bg: #e5e7eb;
+		--btn-secondary-bg-hover: #d1d5db;
+		--btn-secondary-fg: #111827;
+
+		--btn-success-bg: #16a34a;
+		--btn-success-bg-hover: #15803d;
+		--btn-success-fg: #ffffff;
+
+		--btn-danger-bg: #dc2626;
+		--btn-danger-bg-hover: #b91c1c;
+		--btn-danger-fg: #ffffff;
+
+		--btn-outline-bg: #ffffff;
+		--btn-outline-fg: #111827;
+		--btn-outline-border: #d1d5db;
+
+		--tab-text: #64748b;
+		/* slate-500 */
+		--tab-hover-text: #374151;
+		/* gray-700 */
+		--tab-active: #2563eb;
+		/* blue-600 */
+	}
+
+	[data-theme='dark'] {
+		--bg: #0b1220;
+		--bg-gradient: linear-gradient(to bottom right, #0b1220, #111827);
+		--text: #e5e7eb;
+		/* gray-200 */
+		--muted: #94a3b8;
+		/* slate-400 */
+
+		--card-bg: #0f172a;
+		/* slate-900 */
+		--card-border: #1f2937;
+		/* gray-800 */
+
+		--input-bg: #0b1220;
+		--input-border: #334155;
+		/* slate-700 */
+
+		--btn-primary-bg: #3b82f6;
+		--btn-primary-bg-hover: #2563eb;
+		--btn-primary-fg: #ffffff;
+
+		--btn-secondary-bg: #1f2937;
+		/* gray-800 */
+		--btn-secondary-bg-hover: #374151;
+		/* gray-700 */
+		--btn-secondary-fg: #e5e7eb;
+
+		--btn-success-bg: #22c55e;
+		--btn-success-bg-hover: #16a34a;
+		--btn-success-fg: #052e16;
+		/* for contrast if needed */
+
+		--btn-danger-bg: #ef4444;
+		--btn-danger-bg-hover: #dc2626;
+		--btn-danger-fg: #ffffff;
+
+		--btn-outline-bg: #0f172a;
+		--btn-outline-fg: #e5e7eb;
+		--btn-outline-border: #334155;
+
+		--tab-text: #94a3b8;
+		/* slate-400 */
+		--tab-hover-text: #e5e7eb;
+		/* gray-200 */
+		--tab-active: #60a5fa;
+		/* blue-400 */
+	}
+
+	body {
+		@apply font-sans;
+		color: var(--text);
+		background: var(--bg-gradient);
+	}
+
+	h1,
+	h2,
+	h3,
+	h4 {
+		@apply tracking-tight;
+	}
+}
+
+@layer components {
+	.card {
+		@apply rounded-xl shadow-card border;
+		background: var(--card-bg);
+		border-color: var(--card-border);
+	}
+
+	.card-section {
+		@apply p-4 sm:p-6;
+	}
+
+	.btn {
+		@apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500;
+	}
+
+	.btn-primary {
+		background-color: var(--btn-primary-bg);
+		color: var(--btn-primary-fg);
+	}
+
+	.btn-primary:hover {
+		background-color: var(--btn-primary-bg-hover);
+	}
+
+	.btn-secondary {
+		background-color: var(--btn-secondary-bg);
+		color: var(--btn-secondary-fg);
+	}
+
+	.btn-secondary:hover {
+		background-color: var(--btn-secondary-bg-hover);
+	}
+
+	.btn-success {
+		background-color: var(--btn-success-bg);
+		color: var(--btn-success-fg);
+	}
+
+	.btn-success:hover {
+		background-color: var(--btn-success-bg-hover);
+	}
+
+	.btn-danger {
+		background-color: var(--btn-danger-bg);
+		color: var(--btn-danger-fg);
+	}
+
+	.btn-danger:hover {
+		background-color: var(--btn-danger-bg-hover);
+	}
+
+	.btn-outline {
+		background-color: var(--btn-outline-bg);
+		color: var(--btn-outline-fg);
+		border: 1px solid var(--btn-outline-border);
+	}
+
+	.btn-ghost {
+		@apply bg-transparent;
+		color: var(--muted);
+	}
+
+	.btn-ghost {
+		@apply bg-transparent text-gray-700 hover:bg-gray-100;
+	}
+
+	.btn-link {
+		@apply bg-transparent text-blue-600 hover:text-blue-700 px-0 py-0;
+	}
+
+	.btn-sm {
+		@apply px-2.5 py-1.5 text-sm;
+	}
+
+	.btn-lg {
+		@apply px-5 py-3 text-base;
+	}
+
+	.input {
+		@apply w-full px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500;
+		background: var(--input-bg);
+		color: var(--text);
+		border: 1px solid var(--input-border);
+	}
+
+	.label {
+		@apply block text-sm font-medium mb-2;
+		color: var(--muted);
+	}
+
+	/* Simple badges */
+	.badge {
+		@apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+	}
+
+	.badge-success {
+		@apply bg-green-100 text-green-800;
+	}
+
+	.badge-info {
+		@apply bg-blue-100 text-blue-800;
+	}
+
+	.badge-warn {
+		@apply bg-amber-100 text-amber-800;
+	}
+
+	.badge-neutral {
+		@apply bg-gray-100 text-gray-800;
+	}
+
+	/* Tabs (horizontal) */
+	.tab {
+		@apply flex items-center space-x-2 px-3 py-4 text-sm font-medium border-b-2 border-transparent;
+		color: var(--tab-text);
+	}
+
+	.tab:hover {
+		color: var(--tab-hover-text);
+		border-color: rgba(148, 163, 184, 0.25);
+	}
+
+	.tab-active {
+		color: var(--tab-active);
+		border-color: var(--tab-active);
+	}
+}
+
+/* Subtle modern scrollbar */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: #CBD5E1 transparent;
+}
+
+*::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+	background-color: #CBD5E1;
+	border-radius: 9999px;
+	border: 3px solid transparent;
+	background-clip: content-box;
+}
+
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+/* Reduced motion preference: remove non-essential animations & transitions */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation: none !important;
+		transition: none !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* Dark header/nav override */
+[data-theme='dark'] header,
+[data-theme='dark'] nav {
+	background-color: var(--card-bg) !important;
+	border-color: var(--card-border) !important;
+}
+
+[data-theme='dark'] header h1,
+[data-theme='dark'] header p {
+	color: var(--text) !important;
+}
+
+/* Dark mode contrast polish */
+[data-theme='dark'] .bg-white\/60 {
+	/* override translucent white surfaces */
+	background-color: rgba(30, 41, 59, 0.85) !important;
+	/* slate-800 w/ alpha */
+	backdrop-filter: saturate(1.2) blur(1px);
+}
+
+[data-theme='dark'] .text-gray-700 {
+	color: #e2e8f0 !important;
+}
+
+[data-theme='dark'] .text-gray-600 {
+	color: #cbd5e1 !important;
+}
+
+[data-theme='dark'] .text-gray-500 {
+	color: #94a3b8 !important;
+}
+
+[data-theme='dark'] .border-gray-200 {
+	border-color: #334155 !important;
+}
+
+[data-theme='dark'] .border-gray-300 {
+	border-color: #475569 !important;
+}
+
+[data-theme='dark'] .shadow-sm,
+[data-theme='dark'] .shadow {
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-theme='dark'] .btn-outline {
+	background-color: #1e293b;
+}
+
+[data-theme='dark'] .btn-secondary {
+	background-color: #1f2937;
+}
+
+[data-theme='dark'] .btn-secondary:hover {
+	background-color: #374151;
+}
+
+[data-theme='dark'] .btn-success {
+	color: #052e16;
+}
+
+[data-theme='dark'] .focus\:ring-blue-500:focus {
+	--tw-ring-color: #60a5fa !important;
+}

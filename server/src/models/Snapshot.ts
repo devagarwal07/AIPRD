@@ -6,6 +6,8 @@ export interface ISnapshot extends Document {
     formData: any; // Keep flexible
     sections: any;
     templateId?: string;
+    compressed?: boolean;
+    schemaVersion: number;
     createdAt: Date;
 }
 
@@ -14,7 +16,9 @@ const SnapshotSchema = new Schema<ISnapshot>({
     note: { type: String },
     formData: { type: Schema.Types.Mixed, required: true },
     sections: { type: Schema.Types.Mixed, required: true },
-    templateId: { type: String }
+    templateId: { type: String },
+    compressed: { type: Boolean, default: false },
+    schemaVersion: { type: Number, default: 1 }
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 export const Snapshot = mongoose.model<ISnapshot>('Snapshot', SnapshotSchema);

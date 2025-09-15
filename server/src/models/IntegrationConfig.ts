@@ -7,6 +7,8 @@ export interface IIntegrationConfig extends Document {
   jiraProjectKey?: string; // explicit project key for API usage
   linearWorkspace?: string;
   linearTeamHint?: string;
+  customTemplates?: Array<{ id: string; name: string; markdown: string; createdAt: number }>;
+  schemaVersion: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,7 +19,9 @@ const IntegrationConfigSchema = new Schema<IIntegrationConfig>({
   jiraProjectHint: String,
   jiraProjectKey: String,
   linearWorkspace: String,
-  linearTeamHint: String
+  linearTeamHint: String,
+  customTemplates: { type: [Object], default: [] },
+  schemaVersion: { type: Number, default: 1 }
 }, { timestamps: true });
 
 IntegrationConfigSchema.index({ userId: 1 }, { unique: true });

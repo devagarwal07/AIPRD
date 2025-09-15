@@ -1,0 +1,52 @@
+{
+  "app.title": "PM Copilot",
+  "app.tagline": "AI-Powered Product Management Assistant",
+  "nav.dashboard": "Dashboard",
+  "nav.prd": "PRD Builder",
+  "nav.prioritization": "Prioritization",
+  "nav.stakeholders": "Stakeholder Input",
+  "nav.notFound": "404 – Not Found",
+  "notFound.message": "The page you are looking for doesn’t exist.",
+  "notFound.goHome": "Go Home",
+  "auth.signIn": "Sign In",
+  "auth.signUp": "Sign Up",
+  "auth.signInCta": "Sign in to continue",
+  "auth.startUsing": "Start using PM Copilot",
+  "auth.welcomeBack": "Welcome back",
+  "auth.createAccountHeadline": "Create your account",
+  "auth.createAccountLink": "Create account",
+  "auth.haveAccount": "Have an account? Sign in",
+  "auth.accountCreated": "Account created",
+  "auth.signedIn": "Signed in",
+  "auth.rememberMe": "Remember me",
+  "form.name": "Name",
+  "form.email": "Email",
+  "form.password": "Password",
+  "form.name.placeholder": "Your name",
+  "form.email.placeholder": "you@example.com",
+  "form.password.placeholder": "••••••••",
+  "validation.email": "Enter a valid email",
+  "validation.name": "Enter your name",
+  "validation.password": "Password must be at least 6 characters",
+  "ai.assistantActive": "AI Assistant Active",
+  "loading.generic": "Loading…",
+  "telemetry.shareAnonymous": "Share anonymous usage to improve PM Copilot"
+  ,"dashboard.welcome": "Welcome back, {name}! 👋"
+  ,"dashboard.intro": "Your AI copilot has analyzed your recent work and has some insights to help you make better product decisions."
+  ,"dashboard.recs": "{count} new AI recommendations available"
+  ,"dashboard.stats.prds": "PRDs Created"
+  ,"dashboard.stats.features": "Features Prioritized"
+  ,"dashboard.stats.reviews": "Stakeholder Reviews"
+  ,"dashboard.stats.decisionTime": "Avg. Decision Time"
+  ,"dashboard.recentProjects": "Recent Projects"
+  ,"dashboard.recentProjects.sub": "Your active PRDs and prioritization work"
+  ,"dashboard.aiInsights": "AI Insights & Recommendations"
+  ,"dashboard.aiInsights.sub": "Powered by your work patterns and best practices"
+  ,"dashboard.takeAction": "Take Action →"
+  ,"autosave.saving": "Saving…"
+  ,"autosave.saved": "Saved"
+  ,"font.scale.label": "Font size"
+  ,"font.scale.small": "Small"
+  ,"font.scale.medium": "Medium"
+  ,"font.scale.large": "Large"
+}
